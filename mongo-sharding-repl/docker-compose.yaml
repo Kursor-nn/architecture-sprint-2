@@ -1,0 +1,127 @@
+name: mongo-sharding-repl
+services:
+  configSrv:
+    image: mongo:latest
+    container_name: mongos_config_srv_repl
+    restart: always
+    volumes:
+      - configSrv-volume:/data/db
+    command: mongod --configsvr --replSet config-server-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard1_1:
+    image: mongo:latest
+    container_name: shard1_1
+    restart: always
+    volumes:
+      - shard1_1-data:/data/db
+    command: mongod --shardsvr --replSet shard1-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard1_2:
+    image: mongo:latest
+    container_name: shard1_2
+    restart: always
+    volumes:
+      - shard1_2-data:/data/db
+    command: mongod --shardsvr --replSet shard1-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard1_3:
+    image: mongo:latest
+    container_name: shard1_3
+    restart: always
+    volumes:
+      - shard1_3-data:/data/db
+    command: mongod --shardsvr --replSet shard1-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard2_1:
+    image: mongo:latest
+    container_name: shard2_1
+    restart: always
+    volumes:
+      - shard2_1-data:/data/db
+    command: mongod --shardsvr --replSet shard2-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard2_2:
+    image: mongo:latest
+    container_name: shard2_2
+    restart: always
+    volumes:
+      - shard2_2-data:/data/db
+    command: mongod --shardsvr --replSet shard2-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard2_3:
+    image: mongo:latest
+    container_name: shard2_3
+    restart: always
+    volumes:
+      - shard2_3-data:/data/db
+    command: mongod --shardsvr --replSet shard2-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+  
+  router:
+    image: mongo:latest
+    container_name: router-repl
+    restart: always
+    command: mongos --configdb config-server-rs/configSrv:27017 --bind_ip_all
+    depends_on:
+      - configSrv
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  pymongo_api:
+    container_name: pymongo_api_repl
+    build:
+      context: api_app
+      dockerfile: Dockerfile
+    image: kazhem/pymongo_api:1.0.0
+    depends_on:
+      - shard1_1
+      - shard1_2
+      - shard1_3
+      - shard2_1
+      - shard2_2
+      - shard2_3
+      - router
+      - configSrv
+    ports:
+      - 8080:8080
+    environment:
+      MONGODB_URL: "mongodb://router:27017"
+      MONGODB_DATABASE_NAME: "somedb"
+volumes:
+  configSrv-volume:
+  shard1_1-data:
+  shard1_2-data:
+  shard1_3-data:
+  shard2_1-data:
+  shard2_2-data:
+  shard2_3-data:
+
