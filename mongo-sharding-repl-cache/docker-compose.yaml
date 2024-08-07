@@ -1,0 +1,127 @@
+version: '3.8'
+name: mongo-sharding-repl-cache
+services:
+  redis_cache:
+    image: "redis:latest"
+    container_name: redis_cache
+    ports:
+      - "6379"
+    volumes:
+      - redis_cache_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+
+  configSrv:
+    image: mongo:latest
+    container_name: mongos_config_srv_repl_cache
+    restart: always
+    volumes:
+      - configSrv-volume:/data/db
+    command: mongod --configsvr --replSet config-server-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: echo 'db.runCommand({serverStatus:1}).ok' | mongosh admin --quiet | grep 1
+      interval: 1s
+      timeout: 1s
+      retries: 100
+      start_period: 5s
+
+  shard1_1:
+    image: mongo:latest
+    container_name: shard1_1
+    restart: always
+    volumes:
+      - shard1_1-data:/data/db
+    command: mongod --shardsvr --replSet shard1-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+
+  shard1_2:
+    image: mongo:latest
+    container_name: shard1_2
+    restart: always
+    volumes:
+      - shard1_2-data:/data/db
+    command: mongod --shardsvr --replSet shard1-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+
+  shard1_3:
+    image: mongo:latest
+    container_name: shard1_3
+    restart: always
+    volumes:
+      - shard1_3-data:/data/db
+    command: mongod --shardsvr --replSet shard1-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+
+  shard2_1:
+    image: mongo:latest
+    container_name: shard2_1
+    restart: always
+    volumes:
+      - shard2_1-data:/data/db
+    command: mongod --shardsvr --replSet shard2-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+
+  shard2_2:
+    image: mongo:latest
+    container_name: shard2_2
+    restart: always
+    volumes:
+      - shard2_2-data:/data/db
+    command: mongod --shardsvr --replSet shard2-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+
+  shard2_3:
+    image: mongo:latest
+    container_name: shard2_3
+    restart: always
+    volumes:
+      - shard2_3-data:/data/db
+    command: mongod --shardsvr --replSet shard2-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+
+  router:
+    image: mongo:latest
+    container_name: router-repl
+    restart: always
+    command: mongos --configdb config-server-rs/configSrv:27017 --bind_ip_all
+    depends_on:
+      - configSrv
+
+  pymongo_api:
+    container_name: pymongo_api_repl_cache
+    build:
+      context: api_app
+      dockerfile: Dockerfile
+    image: kazhem/pymongo_api:1.0.0
+    depends_on:
+      - shard1_1
+      - shard1_2
+      - shard1_3
+      - shard2_1
+      - shard2_2
+      - shard2_3
+      - router
+      - configSrv
+      - redis_cache
+    ports:
+      - 8080:8080
+    environment:
+      MONGODB_URL: "mongodb://router:27017"
+      MONGODB_DATABASE_NAME: "somedb"
+      REDIS_URL: "redis://redis_cache:6379"
+volumes:
+  redis_cache_data: { }
+  configSrv-volume: { }
+  shard1_1-data: { }
+  shard1_2-data: { }
+  shard1_3-data: { }
+  shard2_1-data: { }
+  shard2_2-data: { }
+  shard2_3-data: { }
+
