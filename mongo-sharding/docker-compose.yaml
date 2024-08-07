@@ -1,0 +1,77 @@
+name: mongo-sharding
+services:
+
+  configSrv:
+    image: mongo:latest
+    container_name: mongos_config_srv
+    restart: always
+    volumes:
+      - configSrv-volume:/data/db
+    command: mongod --configsvr --replSet config-server-rs --port 27017 --bind_ip_all
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard1:
+    image: mongo:latest
+    container_name: mongos_shard1
+    restart: always
+    volumes:
+      - shard1-volume:/data/db
+    command: mongod --shardsvr --replSet shard1-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  shard2:
+    image: mongo:latest
+    container_name: mongos_shard2
+    restart: always
+    volumes:
+      - shard2-volume:/data/db
+    command: mongod --shardsvr --replSet shard2-rs --port 27017 --bind_ip_all
+    depends_on:
+      - configSrv
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  router:
+    image: mongo:latest
+    container_name: router
+    restart: always
+    command: mongos --configdb config-server-rs/configSrv:27017 --bind_ip_all
+    depends_on:
+      - configSrv
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 5s
+      start_period: 10s
+
+  pymongo_api:
+    container_name: pymongo_api
+    build:
+      context: api_app
+      dockerfile: Dockerfile
+    image: kazhem/pymongo_api:1.0.0
+    depends_on:
+      - shard1
+      - shard2
+      - router
+      - configSrv
+
+    ports:
+      - 8080:8080
+    environment:
+      MONGODB_URL: "mongodb://router:27017"
+      MONGODB_DATABASE_NAME: "somedb"
+
+volumes:
+  shard1-volume:
+  shard2-volume:
+  configSrv-volume:
